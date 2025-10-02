@@ -4,6 +4,10 @@ A powerful cross-platform **macro recording and automation tool** for Linux (X11
 Easily record mouse and keyboard actions, create multi-step macros, and replay them with configurable delays and hotkeys.
 
 ---
+<img width="704" height="542" alt="image" src="https://github.com/user-attachments/assets/b522aca0-e55d-4a66-a336-06290cf18143" />
+<img width="696" height="548" alt="image" src="https://github.com/user-attachments/assets/908042db-fb90-4664-8100-8a37adfdbd88" />
+<img width="693" height="540" alt="image" src="https://github.com/user-attachments/assets/14271cab-82a9-4143-bbcf-cad263b5d07b" />
+
 
 ## Features
 
