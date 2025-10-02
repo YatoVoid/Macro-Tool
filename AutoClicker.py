@@ -531,41 +531,42 @@ class MainWindow(QMainWindow):
             if not evs:
                 QMessageBox.warning(self, "No recording", "No recorded events to play.")
                 return
-            speed_multiplier = 2.0  # 2x faster, 0.5 would be half speed
+
 
             def run_recorded():
-                for ev in evs:
-                    if self.stop_event.is_set():
-                        break
-                    dt = ev[-1] / 1000.0  # last item is the delay in ms
-                    dt /= speed_multiplier  # adjust speed
+                while not self.stop_event.is_set():
+                    for ev in evs:
+                        if self.stop_event.is_set():
+                            break
+                        dt = ev[-1] / 1000.0  # last item is the delay in ms
 
-                    if ev[0] == 'move':
-                        _, x, y, _ = ev
-                        time.sleep(dt)
-                        pyautogui.moveTo(x, y)
-                    elif ev[0] == 'click':
-                        _, x, y, btn, pressed, _ = ev
-                        time.sleep(dt)
-                        if pressed:
-                            pyautogui.mouseDown(x, y, button=btn)
-                        else:
-                            pyautogui.mouseUp(x, y, button=btn)
-                    elif ev[0] == 'scroll':
-                        _, x, y, dx, dy, _ = ev
-                        time.sleep(dt)
-                        pyautogui.scroll(dy)
-                    elif ev[0] == 'key':
-                        _, name, _ = ev
-                        time.sleep(dt)
-                        if name.startswith('<') and name.endswith('>'):
-                            kn = name.strip('<>')
-                            try:
-                                pyautogui.press(kn)
-                            except Exception:
-                                pass
-                        else:
-                            pyautogui.press(name)
+
+                        if ev[0] == 'move':
+                            _, x, y, _ = ev
+                            time.sleep(dt)
+                            pyautogui.moveTo(x, y)
+                        elif ev[0] == 'click':
+                            _, x, y, btn, pressed, _ = ev
+                            time.sleep(dt)
+                            if pressed:
+                                pyautogui.mouseDown(x, y, button=btn)
+                            else:
+                                pyautogui.mouseUp(x, y, button=btn)
+                        elif ev[0] == 'scroll':
+                            _, x, y, dx, dy, _ = ev
+                            time.sleep(dt)
+                            pyautogui.scroll(dy)
+                        elif ev[0] == 'key':
+                            _, name, _ = ev
+                            time.sleep(dt)
+                            if name.startswith('<') and name.endswith('>'):
+                                kn = name.strip('<>')
+                                try:
+                                    pyautogui.press(kn)
+                                except Exception:
+                                    pass
+                            else:
+                                pyautogui.press(name)
 
             self.exec_thread = threading.Thread(target=run_recorded, daemon=True)
             self.exec_thread.start()
@@ -656,6 +657,7 @@ class MainWindow(QMainWindow):
 
     def load_config_dialog(self):
         fname, _ = QFileDialog.getOpenFileName(self, "Load config", str(Path.home()), "JSON Files (*.json)")
+
         if not fname:
             return
         self.load_config(fname)
