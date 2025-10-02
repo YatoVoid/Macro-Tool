@@ -17,7 +17,6 @@ from pathlib import Path
 from dataclasses import dataclass, asdict, field
 from typing import List, Optional
 
-from PySide6 import QtCore
 from PySide6.QtCore import Qt, QTimer, QSize, QEvent
 from PySide6.QtWidgets import (
     QApplication, QWidget, QMainWindow, QVBoxLayout, QHBoxLayout, QLabel,
@@ -584,18 +583,12 @@ class MainWindow(QMainWindow):
         def on_click(x, y, button, pressed):
             if not getattr(self, '_recording', False):
                 return False
-
-            # Translate global mouse position (x,y) into stop_btn coordinates
-            local_pos = self.stop_btn.mapFromGlobal(QtCore.QPoint(x, y))
-            if self.stop_btn.rect().contains(local_pos):
-                return  # skip logging clicks on Stop button
-
             nonlocal last_time
             now = time.time()
             delay = int((now - last_time) * 1000)
             last_time = now
-            self._recorded_events.append(('click', x, y, button.name, pressed, delay))
-            self._add_record_item_safe(f"{'Down' if pressed else 'Up'} {button.name} @ {x},{y}")
+            self._recorded_events.append(('click', last_pos[0], last_pos[1], button.name, pressed, delay))
+            self._add_record_item_safe(f"{'Down' if pressed else 'Up'} {button.name} @ {last_pos[0]},{last_pos[1]}")
 
         def on_scroll(x, y, dx, dy):
             if not getattr(self, '_recording', False):
