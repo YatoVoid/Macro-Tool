@@ -17,7 +17,7 @@ from pathlib import Path
 from dataclasses import dataclass, asdict, field
 from typing import List, Optional
 
-from PySide6.QtCore import Qt, QTimer, QSize, QEvent
+from PySide6.QtCore import Qt, QTimer, QSize, QEvent, QPoint
 from PySide6.QtWidgets import (
     QApplication, QWidget, QMainWindow, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QRadioButton, QGroupBox, QStackedWidget,
@@ -574,13 +574,18 @@ class MainWindow(QMainWindow):
 
     def _record_thread(self):
         last_time = time.time()
-        last_pos = [0, 0]  # track last mouse position
+        last_pos = [0, 0]
 
         def on_move(x, y):
-            # just remember last position, don't log
             last_pos[0], last_pos[1] = x, y
 
         def on_click(x, y, button, pressed):
+            # Ignore if clicking the stop button
+            if self.stop_btn.geometry().contains(
+                    self.stop_btn.mapFromGlobal(QPoint(*pyautogui.position()))
+            ):
+                return
+
             if not getattr(self, '_recording', False):
                 return False
             nonlocal last_time
@@ -601,6 +606,9 @@ class MainWindow(QMainWindow):
             self._add_record_item_safe(f"Scroll {dx},{dy} @ {last_pos[0]},{last_pos[1]}")
 
         def on_key_press(key):
+            # Ignore stop trigger (Enter or configured stop hotkey)
+            if key == Key.enter or parse_hotkey_string(str(key)) == self.config.stop_hotkey:
+                return
             if not getattr(self, '_recording', False):
                 return False
             nonlocal last_time
@@ -616,7 +624,6 @@ class MainWindow(QMainWindow):
             while getattr(self, '_recording', False):
                 time.sleep(0.05)
         self._add_record_item_safe("Recording finished.")
-
 
     # Execution engine
 
