@@ -17,7 +17,8 @@ from pathlib import Path
 from dataclasses import dataclass, asdict, field
 from typing import List, Optional
 
-from PySide6.QtCore import Qt, QTimer, QSize, QEvent
+from PySide6.QtCore import Qt, QTimer, QSize, QEvent, QPoint
+from PySide6.QtGui import QPainter, QColor, QFont
 from PySide6.QtWidgets import (
     QApplication, QWidget, QMainWindow, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QRadioButton, QGroupBox, QStackedWidget,
@@ -32,6 +33,35 @@ from pynput.keyboard import Key, Controller as KeyboardController
 from pynput.mouse import Controller as MouseController
 
 pyautogui.FAILSAFE = False  # optional: disable moving to corner to stop
+
+
+class Overlay(QWidget):
+    def __init__(self, clicks):
+        super().__init__()
+        self.clicks = clicks  # List of ClickAction objects
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.showFullScreen()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        for i, click in enumerate(self.clicks):
+            x, y = click.x, click.y
+            # Draw circle
+            painter.setPen(QColor(255, 0, 0))
+            painter.setBrush(QColor(255, 0, 0, 50))
+            painter.drawEllipse(QPoint(x, y), 20, 20)
+
+            # Draw dot inside
+            painter.setBrush(QColor(255, 0, 0))
+            painter.drawEllipse(QPoint(x, y), 5, 5)
+
+            # Draw number
+            painter.setFont(QFont("Arial", 12))
+            painter.setPen(QColor(0, 0, 0))
+            painter.drawText(x + 25, y + 5, str(i+1))
 
 
 # Data classes for saving
@@ -198,9 +228,12 @@ class MultiItemWidget(QWidget):
             self.remove_callback(self)
 
     def start_set_pos(self):
-        QMessageBox.information(self, "Set Position",
-                                "Move your mouse to desired position and press Enter.",
-                                QMessageBox.Ok)
+        QMessageBox.information(
+            self,
+            "Set Position",
+            "Move your mouse to desired position and press Enter.",
+            QMessageBox.Ok
+        )
         captured = {'pos': None}
 
         def on_press(key):
@@ -210,11 +243,16 @@ class MultiItemWidget(QWidget):
 
         with pynput_keyboard.Listener(on_press=on_press) as listener:
             listener.join()
+
         if captured['pos']:
             px, py = captured['pos']
             self.action.x = px
             self.action.y = py
             self.pos_label.setText(f"{px}, {py}")
+
+            # Refresh overlay
+            if hasattr(self, 'overlay'):
+                self.overlay.update()
 
 
 # Main Window
@@ -525,6 +563,13 @@ class MainWindow(QMainWindow):
         self.multi_layout.insertWidget(self.multi_layout.count() - 1, widget)
         if append_to_config:
             self.config.items.append(action)
+
+        if hasattr(self, 'overlay'):
+            self.overlay.clicks = self.config.items
+            self.overlay.update()
+        else:
+            self.overlay = Overlay(self.config.items)
+
 
     def _format_record_item(self, ev):
         try:
