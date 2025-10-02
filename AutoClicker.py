@@ -693,7 +693,7 @@ class MainWindow(QMainWindow):
                     for ev in evs:
                         if self.stop_event.is_set():
                             break
-                        dt = ev[-1] / 10000.0  # convert ms to seconds
+                        dt = ev[-1] / 1000.0  # convert ms to seconds
 
                         # interruptible sleep
                         start = time.time()
