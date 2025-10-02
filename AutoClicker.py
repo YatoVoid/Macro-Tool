@@ -285,9 +285,134 @@ class MainWindow(QMainWindow):
         self._install_hotkeys()
 
     def update_hotkey_buttons(self):
-        """Update the Start/Stop button text to reflect current hotkeys."""
         self.start_btn.setText(f"Start ({self.config.start_hotkey.strip('<>')})")
         self.stop_btn.setText(f"Stop ({self.config.stop_hotkey.strip('<>')})")
+
+    def save_config(self, fname: str):
+
+        # detect mode
+        mode = 'single' if self.rb_single.isChecked() else 'multi' if self.rb_multi.isChecked() else 'record'
+
+        # gather multi items from UI (respect actual widget state)
+        items = []
+        for i in range(self.multi_layout.count() - 1):
+            widget = self.multi_layout.itemAt(i).widget()
+            if isinstance(widget, MultiItemWidget):
+                items.append(asdict(widget.action))
+
+        # single settings (if a single position was set)
+        single = None
+        if hasattr(self, '_single_pos') and self._single_pos:
+            x, y = self._single_pos
+            single = {
+                'x': int(x),
+                'y': int(y),
+                'delay_ms': int(self.single_delay.value()),
+                'action_type': self.single_click_type.currentText(),
+                'key_char': (self.single_key_edit.text().strip() or None)
+            }
+
+        recorded = getattr(self, '_recorded_events', []) or []
+
+        data = {
+            'mode': mode,
+            'start_hotkey': self.config.start_hotkey,
+            'stop_hotkey': self.config.stop_hotkey,
+            'items': items,
+            'single': single,
+            'recorded_events': recorded,
+        }
+
+        with open(fname, 'w') as f:
+            json.dump(data, f, indent=2)
+
+        # keep last_saved and notify
+        self.config.last_saved = fname
+        QMessageBox.information(self, "Saved", f"Saved to {fname}")
+
+    def load_config_dialog(self):
+        fname, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load config",
+            str(Path.home()),
+            "JSON Files (*.json)"
+        )
+        if not fname:
+            return
+        self.load_config(fname)
+
+
+    def load_config(self, fname: str):
+
+        with open(fname, 'r') as f:
+            data = json.load(f)
+
+        # restore hotkeys
+        self.config.start_hotkey = data.get('start_hotkey', self.config.start_hotkey)
+        self.config.stop_hotkey = data.get('stop_hotkey', self.config.stop_hotkey)
+        self.config.last_saved = fname
+
+        # clear existing multi widgets and reset config.items to avoid duplicates
+        for i in reversed(range(self.multi_layout.count() - 1)):
+            widget = self.multi_layout.itemAt(i).widget()
+            if widget:
+                self.multi_layout.removeWidget(widget)
+                widget.setParent(None)
+        self.config.items = []
+
+        # load items (multi)
+        loaded_items = data.get('items', [])
+        self.config.items = [ClickAction(**it) for it in loaded_items]  # store in config
+        # We'll add UI widgets below depending on mode.
+
+        # load single (if present)
+        single = data.get('single')
+        if single:
+            # set internal single pos and widgets
+            try:
+                self._single_pos = (int(single['x']), int(single['y']))
+                self.single_click_type.setCurrentText(single.get('action_type', 'left'))
+                self.single_key_edit.setText(single.get('key_char') or '')
+                self.single_delay.setValue(int(single.get('delay_ms', self.single_delay.value())))
+            except Exception:
+                # if incoming data is malformed, ignore gracefully
+                pass
+
+        # load recorded events
+        self._recorded_events = data.get('recorded_events', []) or []
+
+        # determine mode and populate UI accordingly
+        mode = data.get('mode', 'multi')
+        if mode == 'single':
+            self.rb_single.setChecked(True)
+            # represent single as an item in the list (so user sees it)
+            if single:
+                act = ClickAction(
+                    x=int(single['x']), y=int(single['y']),
+                    delay_ms=int(single.get('delay_ms', 500)),
+                    unit='ms',
+                    action_type=single.get('action_type', 'left'),
+                    key_char=single.get('key_char')
+                )
+                self._add_multi_item(act)
+        elif mode == 'multi':
+            self.rb_multi.setChecked(True)
+            # add each saved multi action as UI widgets
+            for it in self.config.items:
+                self._add_multi_item(it)
+        else:  # 'record'
+            self.rb_record.setChecked(True)
+            # show recorded events in the record_list
+            self.record_list.clear()
+            for ev in self._recorded_events:
+                self.record_list.addItem(self._format_record_item(ev))
+
+        # re-install hotkeys and update buttons
+        self._install_hotkeys()
+        self.update_hotkey_buttons()
+
+        QMessageBox.information(self, "Loaded", f"Loaded {fname}")
+
 
     # Stack pages
 
@@ -389,12 +514,39 @@ class MainWindow(QMainWindow):
     # Multi list management
 
     def _add_multi_item(self, action=None, *args, **kwargs):
+
+        append_to_config = False
         if action is None:
             x, y = pyautogui.position()
             action = ClickAction(x=x, y=y)
+            append_to_config = True
+
         widget = MultiItemWidget(action, remove_callback=self._remove_multi_item)
         self.multi_layout.insertWidget(self.multi_layout.count() - 1, widget)
-        self.config.items.append(action)
+        if append_to_config:
+            self.config.items.append(action)
+
+    def _format_record_item(self, ev):
+        try:
+            if not ev or not isinstance(ev, (list, tuple)):
+                return str(ev)
+            t = ev[0]
+            if t == 'move':
+                _, x, y, _ = ev
+                return f"Move to {x},{y}"
+            if t == 'click':
+                _, x, y, btn, pressed, _ = ev
+                return f"{'Down' if pressed else 'Up'} {btn} @ {x},{y}"
+            if t == 'scroll':
+                _, x, y, dx, dy, _ = ev
+                return f"Scroll {dx},{dy} @ {x},{y}"
+            if t == 'key':
+                _, name, _ = ev
+                return f"Key {name}"
+            return str(ev)
+        except Exception:
+            return str(ev)
+
 
     def _remove_multi_item(self, widget: MultiItemWidget):
         self.multi_layout.removeWidget(widget)
@@ -421,49 +573,42 @@ class MainWindow(QMainWindow):
             threading.Thread(target=self._record_thread, daemon=True).start()
 
     def _record_thread(self):
-        start_time = time.time()
-        last_time = start_time
+        last_time = time.time()
+        last_pos = [0, 0]  # track last mouse position
 
         def on_move(x, y):
-            if not getattr(self, '_recording', False):
-                return False
-            nonlocal last_time
-            now = time.time()
-            self._recorded_events.append(('move', x, y, int((now - last_time) * 1000)))
-            last_time = now
-            self._add_record_item_safe(f"Move to {x},{y}")
+            # just remember last position, don't log
+            last_pos[0], last_pos[1] = x, y
 
         def on_click(x, y, button, pressed):
             if not getattr(self, '_recording', False):
                 return False
             nonlocal last_time
             now = time.time()
-            self._recorded_events.append(('click', x, y, str(button.name), pressed, int((now - last_time) * 1000)))
+            delay = int((now - last_time) * 1000)
             last_time = now
-            self._add_record_item_safe(f"{'Down' if pressed else 'Up'} {button.name} @ {x},{y}")
+            self._recorded_events.append(('click', last_pos[0], last_pos[1], button.name, pressed, delay))
+            self._add_record_item_safe(f"{'Down' if pressed else 'Up'} {button.name} @ {last_pos[0]},{last_pos[1]}")
 
         def on_scroll(x, y, dx, dy):
             if not getattr(self, '_recording', False):
                 return False
             nonlocal last_time
             now = time.time()
-            self._recorded_events.append(('scroll', x, y, dx, dy, int((now - last_time) * 1000)))
+            delay = int((now - last_time) * 1000)
             last_time = now
-            self._add_record_item_safe(f"Scroll {dx},{dy} @ {x},{y}")
+            self._recorded_events.append(('scroll', last_pos[0], last_pos[1], dx, dy, delay))
+            self._add_record_item_safe(f"Scroll {dx},{dy} @ {last_pos[0]},{last_pos[1]}")
 
         def on_key_press(key):
             if not getattr(self, '_recording', False):
                 return False
-            parsed_stop = self.config.stop_hotkey
-            name = getattr(key, 'char', None) or f'<{getattr(key, "name", str(key))}>'
-            if key == Key.enter or str(key).lower().find(parsed_stop.strip('<>')) != -1:
-                self._recording = False
-                QApplication.instance().postEvent(self, _FuncEvent(lambda: self.record_btn.setText("Record")))
-                return False
             nonlocal last_time
             now = time.time()
-            self._recorded_events.append(('key', name, int((now - last_time) * 1000)))
+            delay = int((now - last_time) * 1000)
             last_time = now
+            name = getattr(key, 'char', None) or f'<{getattr(key, "name", str(key))}>'
+            self._recorded_events.append(('key', name, delay))
             self._add_record_item_safe(f"Key {name}")
 
         with pynput_mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll) as mlistener, \
@@ -471,6 +616,7 @@ class MainWindow(QMainWindow):
             while getattr(self, '_recording', False):
                 time.sleep(0.05)
         self._add_record_item_safe("Recording finished.")
+
 
     # Execution engine
 
@@ -547,26 +693,32 @@ class MainWindow(QMainWindow):
                     for ev in evs:
                         if self.stop_event.is_set():
                             break
-                        dt = ev[-1] / 1000.0  # convert ms to seconds
+                        dt = ev[-1] / 10000.0  # convert ms to seconds
 
                         # interruptible sleep
                         start = time.time()
                         while time.time() - start < dt:
                             if self.stop_event.is_set():
                                 return
-                            time.sleep(0.005)
+                            time.sleep(0.001)
 
                         if ev[0] == 'move':
                             _, x, y, _ = ev
                             pyautogui.moveTo(x, y)
+
+
+
                         elif ev[0] == 'click':
                             _, x, y, btn, pressed, _ = ev
+                            pyautogui.moveTo(x, y)
                             if pressed:
                                 pyautogui.mouseDown(x, y, button=btn)
                             else:
                                 pyautogui.mouseUp(x, y, button=btn)
+
                         elif ev[0] == 'scroll':
                             _, x, y, dx, dy, _ = ev
+                            pyautogui.moveTo(x, y)
                             pyautogui.scroll(dy)
                         elif ev[0] == 'key':
                             _, name, _ = ev
@@ -650,49 +802,7 @@ class MainWindow(QMainWindow):
             return
         self.save_config(fname)
 
-    def save_config(self, fname: str):
-        # assemble config
-        # update items from multi widget list
-        items = []
-        for i in range(self.multi_layout.count() - 1):
-            widget = self.multi_layout.itemAt(i).widget()
-            if isinstance(widget, MultiItemWidget):
-                items.append(asdict(widget.action))
-        self.config.items = [ClickAction(**it) for it in items]
-        self.config.last_saved = fname
-        data = {
-            'start_hotkey': self.config.start_hotkey,
-            'stop_hotkey': self.config.stop_hotkey,
-            'items': [asdict(i) for i in self.config.items],
-        }
-        with open(fname, 'w') as f:
-            json.dump(data, f, indent=2)
-        QMessageBox.information(self, "Saved", f"Saved to {fname}")
 
-    def load_config_dialog(self):
-        fname, _ = QFileDialog.getOpenFileName(self, "Load config", str(Path.home()), "JSON Files (*.json)")
-
-        if not fname:
-            return
-        self.load_config(fname)
-
-    def load_config(self, fname: str):
-        with open(fname, 'r') as f:
-            data = json.load(f)
-        self.config.start_hotkey = data.get('start_hotkey', self.config.start_hotkey)
-        self.config.stop_hotkey = data.get('stop_hotkey', self.config.stop_hotkey)
-        self.config.items = [ClickAction(**it) for it in data.get('items', [])]
-        # repopulate UI multi list
-        # clear existing
-        for i in reversed(range(self.multi_layout.count() - 1)):
-            widget = self.multi_layout.itemAt(i).widget()
-            if widget:
-                self.multi_layout.removeWidget(widget)
-                widget.setParent(None)
-        for it in self.config.items:
-            self._add_multi_item(it)
-        self._install_hotkeys()
-        QMessageBox.information(self, "Loaded", f"Loaded {fname}")
 
     # Qt event handling for hotkey callbacks
 
