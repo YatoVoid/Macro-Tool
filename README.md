@@ -88,6 +88,13 @@ Or directly with venv Python:
 * PyAutoGUI and pynput may require root access if capturing input globally on Linux.
 * Mouse/keyboard fails to capture outside the app on Wayland due to OS restrictions.
 
+## ToDo:
+* Fix Save/Load Config for multiple actions. 
+* Record Should be smoother. (save only needed actions)
+
+
+
+
 ---
 
 ## License
