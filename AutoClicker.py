@@ -33,9 +33,9 @@ from pynput.mouse import Controller as MouseController
 
 pyautogui.FAILSAFE = False  # optional: disable moving to corner to stop
 
-       
+
 # Data classes for saving
-       
+
 @dataclass
 class ClickAction:
     x: int
@@ -45,6 +45,7 @@ class ClickAction:
     action_type: str = 'left'  # 'left'|'right'|'middle'|'key'
     key_char: Optional[str] = None
 
+
 @dataclass
 class Config:
     start_hotkey: str = '<f9>'
@@ -52,11 +53,12 @@ class Config:
     items: List[ClickAction] = field(default_factory=list)
     last_saved: Optional[str] = None
 
-       
+
 # Helpers
-       
+
 mouse_ctrl = MouseController()
 kb_ctrl = KeyboardController()
+
 
 def parse_hotkey_string(s: str) -> str:
     s = s.strip()
@@ -78,6 +80,7 @@ def parse_hotkey_string(s: str) -> str:
         return key
     return f'<{key}>'
 
+
 def click_at(action: ClickAction):
     if action.action_type == 'key' and action.key_char:
         pyautogui.press(action.key_char)
@@ -85,17 +88,17 @@ def click_at(action: ClickAction):
     button = {'left': 'left', 'right': 'right', 'middle': 'middle'}.get(action.action_type, 'left')
     pyautogui.click(action.x, action.y, button=button)
 
-       
+
 # Custom event to safely call functions on main thread
-       
+
 class _FuncEvent(QEvent):
     def __init__(self, callback):
         super().__init__(QEvent.User)
         self.callback = callback
 
-       
+
 # Settings Dialog
-       
+
 class SettingsDialog(QDialog):
     def __init__(self, parent=None, config: Config = None):
         super().__init__(parent)
@@ -124,9 +127,9 @@ class SettingsDialog(QDialog):
         self.config.stop_hotkey = parse_hotkey_string(self.stop_edit.text())
         super().accept()
 
-       
+
 # MultiClick item widget
-       
+
 class MultiItemWidget(QWidget):
     def __init__(self, action: ClickAction, parent=None, remove_callback=None):
         super().__init__(parent)
@@ -199,10 +202,12 @@ class MultiItemWidget(QWidget):
                                 "Move your mouse to desired position and press Enter.",
                                 QMessageBox.Ok)
         captured = {'pos': None}
+
         def on_press(key):
             if key == Key.enter:
                 captured['pos'] = pyautogui.position()
                 return False
+
         with pynput_keyboard.Listener(on_press=on_press) as listener:
             listener.join()
         if captured['pos']:
@@ -211,9 +216,9 @@ class MultiItemWidget(QWidget):
             self.action.y = py
             self.pos_label.setText(f"{px}, {py}")
 
-       
+
 # Main Window
-       
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -279,9 +284,13 @@ class MainWindow(QMainWindow):
         # Install hotkeys
         self._install_hotkeys()
 
-          
+    def update_hotkey_buttons(self):
+        """Update the Start/Stop button text to reflect current hotkeys."""
+        self.start_btn.setText(f"Start ({self.config.start_hotkey.strip('<>')})")
+        self.stop_btn.setText(f"Stop ({self.config.stop_hotkey.strip('<>')})")
+
     # Stack pages
-          
+
     def _build_single_page(self):
         w = QWidget()
         layout = QVBoxLayout(w)
@@ -335,7 +344,8 @@ class MainWindow(QMainWindow):
     def _build_record_page(self):
         w = QWidget()
         v = QVBoxLayout(w)
-        instructions = QLabel("Press Record to begin. Press Enter (or stop hotkey) to stop recording.\nRecorded events will be replayed in order.")
+        instructions = QLabel(
+            "Press Record to begin. Press Enter (or stop hotkey) to stop recording.\nRecorded events will be replayed in order.")
         instructions.setWordWrap(True)
         v.addWidget(instructions)
         self.record_btn = QPushButton("Record")
@@ -346,17 +356,15 @@ class MainWindow(QMainWindow):
 
         return w
 
-          
     # Mode change
-          
+
     def _on_mode_changed(self, page_index):
         if page_index is None:
             page_index = 0 if self.rb_single.isChecked() else 1 if self.rb_multi.isChecked() else 2
         self.stack.setCurrentIndex(page_index)
 
-          
     # Single click helpers
-          
+
     def _update_mouse_label(self):
         x, y = pyautogui.position()
         self.mouse_pos_label.setText(f"Mouse: {x}, {y}")
@@ -365,10 +373,12 @@ class MainWindow(QMainWindow):
     def single_set_pos(self):
         QMessageBox.information(self, "Set Position", "Move mouse to desired position and press Enter.")
         captured = {'pos': None}
+
         def on_press(key):
             if key == Key.enter:
                 captured['pos'] = pyautogui.position()
                 return False
+
         with pynput_keyboard.Listener(on_press=on_press) as listener:
             listener.join()
         if captured['pos']:
@@ -376,9 +386,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Captured", f"Captured: {x}, {y}")
             self._single_pos = (x, y)
 
-          
     # Multi list management
-          
+
     def _add_multi_item(self, action=None, *args, **kwargs):
         if action is None:
             x, y = pyautogui.position()
@@ -395,9 +404,8 @@ class MainWindow(QMainWindow):
         except ValueError:
             pass
 
-          
     # Recording
-          
+
     def _add_record_item_safe(self, text: str):
         QApplication.instance().postEvent(self, _FuncEvent(lambda: self.record_list.addItem(text)))
 
@@ -421,7 +429,7 @@ class MainWindow(QMainWindow):
                 return False
             nonlocal last_time
             now = time.time()
-            self._recorded_events.append(('move', x, y, int((now-last_time)*1000)))
+            self._recorded_events.append(('move', x, y, int((now - last_time) * 1000)))
             last_time = now
             self._add_record_item_safe(f"Move to {x},{y}")
 
@@ -430,7 +438,7 @@ class MainWindow(QMainWindow):
                 return False
             nonlocal last_time
             now = time.time()
-            self._recorded_events.append(('click', x, y, str(button.name), pressed, int((now-last_time)*1000)))
+            self._recorded_events.append(('click', x, y, str(button.name), pressed, int((now - last_time) * 1000)))
             last_time = now
             self._add_record_item_safe(f"{'Down' if pressed else 'Up'} {button.name} @ {x},{y}")
 
@@ -439,7 +447,7 @@ class MainWindow(QMainWindow):
                 return False
             nonlocal last_time
             now = time.time()
-            self._recorded_events.append(('scroll', x, y, dx, dy, int((now-last_time)*1000)))
+            self._recorded_events.append(('scroll', x, y, dx, dy, int((now - last_time) * 1000)))
             last_time = now
             self._add_record_item_safe(f"Scroll {dx},{dy} @ {x},{y}")
 
@@ -454,19 +462,18 @@ class MainWindow(QMainWindow):
                 return False
             nonlocal last_time
             now = time.time()
-            self._recorded_events.append(('key', name, int((now-last_time)*1000)))
+            self._recorded_events.append(('key', name, int((now - last_time) * 1000)))
             last_time = now
             self._add_record_item_safe(f"Key {name}")
 
         with pynput_mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll) as mlistener, \
-             pynput_keyboard.Listener(on_press=on_key_press) as klistener:
+                pynput_keyboard.Listener(on_press=on_key_press) as klistener:
             while getattr(self, '_recording', False):
                 time.sleep(0.05)
         self._add_record_item_safe("Recording finished.")
 
-          
     # Execution engine
-          
+
     def start_execution(self):
         self.stop_event.clear()
         mode = self.stack.currentIndex()
@@ -479,6 +486,7 @@ class MainWindow(QMainWindow):
             typ = self.single_click_type.currentText()
             delay = self.single_delay.value() / 1000.0
             keych = self.single_key_edit.text().strip() or None
+
             def run_single():
                 while not self.stop_event.is_set():
                     x, y = pos
@@ -489,13 +497,14 @@ class MainWindow(QMainWindow):
                         pyautogui.click(x, y, button=typ)
                     # wait
                     time.sleep(delay)
+
             self.exec_thread = threading.Thread(target=run_single, daemon=True)
             self.exec_thread.start()
         elif mode == 1:
             # multi
             # build actions from widgets in layout
             items = []
-            for i in range(self.multi_layout.count()-1):
+            for i in range(self.multi_layout.count() - 1):
                 widget = self.multi_layout.itemAt(i).widget()
                 if isinstance(widget, MultiItemWidget):
                     act = widget.action
@@ -523,6 +532,7 @@ class MainWindow(QMainWindow):
                             break
                         time.sleep(0.01)
                     idx = (idx + 1) % len(items)
+
             self.exec_thread = threading.Thread(target=run_multi, daemon=True)
             self.exec_thread.start()
         else:
@@ -532,14 +542,12 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "No recording", "No recorded events to play.")
                 return
 
-
             def run_recorded():
                 while not self.stop_event.is_set():
                     for ev in evs:
                         if self.stop_event.is_set():
                             break
                         dt = ev[-1] / 1000.0  # last item is the delay in ms
-
 
                         if ev[0] == 'move':
                             _, x, y, _ = ev
@@ -577,7 +585,6 @@ class MainWindow(QMainWindow):
             self.exec_thread.join(timeout=0.5)
         self.exec_thread = None
 
-   
     # Settings and hotkeys
 
     def open_settings(self):
@@ -585,7 +592,12 @@ class MainWindow(QMainWindow):
         if dlg.exec():
             # re-install hotkeys
             self._install_hotkeys()
-            QMessageBox.information(self, "Saved", f"Hotkeys set: Start {self.config.start_hotkey}, Stop {self.config.stop_hotkey}")
+            self.update_hotkey_buttons()
+            QMessageBox.information(
+                self,
+                "Saved",
+                f"Hotkeys set: Start {self.config.start_hotkey}, Stop {self.config.stop_hotkey}"
+            )
 
     def _install_hotkeys(self):
         # stop previous listener
@@ -627,9 +639,8 @@ class MainWindow(QMainWindow):
     def _hotkey_stop_pressed(self):
         QApplication.instance().postEvent(self, _FuncEvent(self.stop_execution))
 
-          
     # Save / Load
-          
+
     def save_config_dialog(self):
         fname, _ = QFileDialog.getSaveFileName(self, "Save config", str(Path.home()), "JSON Files (*.json)")
         if not fname:
@@ -640,7 +651,7 @@ class MainWindow(QMainWindow):
         # assemble config
         # update items from multi widget list
         items = []
-        for i in range(self.multi_layout.count()-1):
+        for i in range(self.multi_layout.count() - 1):
             widget = self.multi_layout.itemAt(i).widget()
             if isinstance(widget, MultiItemWidget):
                 items.append(asdict(widget.action))
@@ -670,7 +681,7 @@ class MainWindow(QMainWindow):
         self.config.items = [ClickAction(**it) for it in data.get('items', [])]
         # repopulate UI multi list
         # clear existing
-        for i in reversed(range(self.multi_layout.count()-1)):
+        for i in reversed(range(self.multi_layout.count() - 1)):
             widget = self.multi_layout.itemAt(i).widget()
             if widget:
                 self.multi_layout.removeWidget(widget)
@@ -680,30 +691,32 @@ class MainWindow(QMainWindow):
         self._install_hotkeys()
         QMessageBox.information(self, "Loaded", f"Loaded {fname}")
 
-          
     # Qt event handling for hotkey callbacks
-          
+
     def customEvent(self, event):
         if isinstance(event, _FuncEvent):
             event.callback()
 
-  
+
 # Custom event to safely call functions on main thread
-  
+
 from PySide6.QtCore import QEvent
+
+
 class _FuncEvent(QEvent):
     def __init__(self, callback):
         super().__init__(QEvent.User)
         self.callback = callback
 
-  
+
 # Entry point
-  
+
 def main():
     app = QApplication(sys.argv)
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()
