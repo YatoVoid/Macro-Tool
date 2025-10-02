@@ -583,6 +583,9 @@ class MainWindow(QMainWindow):
         def on_click(x, y, button, pressed):
             if not getattr(self, '_recording', False):
                 return False
+            if pressed and button.name in STOP_MOUSE_BUTTONS:
+                self._recording = False
+                return False  # don’t record stop action
             nonlocal last_time
             now = time.time()
             delay = int((now - last_time) * 1000)
@@ -600,14 +603,21 @@ class MainWindow(QMainWindow):
             self._recorded_events.append(('scroll', last_pos[0], last_pos[1], dx, dy, delay))
             self._add_record_item_safe(f"Scroll {dx},{dy} @ {last_pos[0]},{last_pos[1]}")
 
+        STOP_KEYS = {"enter"}
+        STOP_MOUSE_BUTTONS = {"right"}
+
+
         def on_key_press(key):
             if not getattr(self, '_recording', False):
                 return False
+            name = getattr(key, 'char', None) or f'<{getattr(key, "name", str(key))}>'
+            if name.lower() in STOP_KEYS:
+                self._recording = False
+                return False  # don’t record stop key
             nonlocal last_time
             now = time.time()
             delay = int((now - last_time) * 1000)
             last_time = now
-            name = getattr(key, 'char', None) or f'<{getattr(key, "name", str(key))}>'
             self._recorded_events.append(('key', name, delay))
             self._add_record_item_safe(f"Key {name}")
 
