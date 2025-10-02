@@ -547,26 +547,29 @@ class MainWindow(QMainWindow):
                     for ev in evs:
                         if self.stop_event.is_set():
                             break
-                        dt = ev[-1] / 1000.0  # last item is the delay in ms
+                        dt = ev[-1] / 1000.0  # convert ms to seconds
+
+                        # interruptible sleep
+                        start = time.time()
+                        while time.time() - start < dt:
+                            if self.stop_event.is_set():
+                                return
+                            time.sleep(0.005)
 
                         if ev[0] == 'move':
                             _, x, y, _ = ev
-                            time.sleep(dt)
                             pyautogui.moveTo(x, y)
                         elif ev[0] == 'click':
                             _, x, y, btn, pressed, _ = ev
-                            time.sleep(dt)
                             if pressed:
                                 pyautogui.mouseDown(x, y, button=btn)
                             else:
                                 pyautogui.mouseUp(x, y, button=btn)
                         elif ev[0] == 'scroll':
                             _, x, y, dx, dy, _ = ev
-                            time.sleep(dt)
                             pyautogui.scroll(dy)
                         elif ev[0] == 'key':
                             _, name, _ = ev
-                            time.sleep(dt)
                             if name.startswith('<') and name.endswith('>'):
                                 kn = name.strip('<>')
                                 try:
