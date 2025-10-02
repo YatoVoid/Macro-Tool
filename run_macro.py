@@ -25,10 +25,26 @@ else:
 print("Upgrading pip...")
 subprocess.check_call([python_bin, "-m", "pip", "install", "--upgrade", "pip"])
 
-# Step 4: install dependencies
-print("Installing dependencies...")
+# Step 4: check for dependencies inside the venv and install if missing
 deps = ["PySide6", "pyautogui", "pynput"]
-subprocess.check_call([pip_bin, "install"] + deps)
+
+# Run a Python command inside the venv to check each package
+missing = []
+for dep in deps:
+    try:
+        subprocess.run([python_bin, "-c", f"import {dep}"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        missing.append(dep)
+
+if missing:
+    print(f"Installing missing dependencies: {missing}")
+    try:
+        subprocess.check_call([pip_bin, "install"] + missing)
+    except subprocess.CalledProcessError:
+        print("Failed to install dependencies. Check your internet connection.")
+        sys.exit(1)
+else:
+    print("All dependencies are already installed.")
 
 # Step 5: run the macro tool
 print("Launching Macro Tool...")
