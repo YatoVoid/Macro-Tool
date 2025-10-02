@@ -33,9 +33,9 @@ from pynput.mouse import Controller as MouseController
 
 pyautogui.FAILSAFE = False  # optional: disable moving to corner to stop
 
-# ---------------------------
+       
 # Data classes for saving
-# ---------------------------
+       
 @dataclass
 class ClickAction:
     x: int
@@ -52,9 +52,9 @@ class Config:
     items: List[ClickAction] = field(default_factory=list)
     last_saved: Optional[str] = None
 
-# ---------------------------
+       
 # Helpers
-# ---------------------------
+       
 mouse_ctrl = MouseController()
 kb_ctrl = KeyboardController()
 
@@ -85,17 +85,17 @@ def click_at(action: ClickAction):
     button = {'left': 'left', 'right': 'right', 'middle': 'middle'}.get(action.action_type, 'left')
     pyautogui.click(action.x, action.y, button=button)
 
-# ---------------------------
+       
 # Custom event to safely call functions on main thread
-# ---------------------------
+       
 class _FuncEvent(QEvent):
     def __init__(self, callback):
         super().__init__(QEvent.User)
         self.callback = callback
 
-# ---------------------------
+       
 # Settings Dialog
-# ---------------------------
+       
 class SettingsDialog(QDialog):
     def __init__(self, parent=None, config: Config = None):
         super().__init__(parent)
@@ -124,9 +124,9 @@ class SettingsDialog(QDialog):
         self.config.stop_hotkey = parse_hotkey_string(self.stop_edit.text())
         super().accept()
 
-# ---------------------------
+       
 # MultiClick item widget
-# ---------------------------
+       
 class MultiItemWidget(QWidget):
     def __init__(self, action: ClickAction, parent=None, remove_callback=None):
         super().__init__(parent)
@@ -211,9 +211,9 @@ class MultiItemWidget(QWidget):
             self.action.y = py
             self.pos_label.setText(f"{px}, {py}")
 
-# ---------------------------
+       
 # Main Window
-# ---------------------------
+       
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -279,9 +279,9 @@ class MainWindow(QMainWindow):
         # Install hotkeys
         self._install_hotkeys()
 
-    # -----------------------
+          
     # Stack pages
-    # -----------------------
+          
     def _build_single_page(self):
         w = QWidget()
         layout = QVBoxLayout(w)
@@ -346,17 +346,17 @@ class MainWindow(QMainWindow):
 
         return w
 
-    # -----------------------
+          
     # Mode change
-    # -----------------------
+          
     def _on_mode_changed(self, page_index):
         if page_index is None:
             page_index = 0 if self.rb_single.isChecked() else 1 if self.rb_multi.isChecked() else 2
         self.stack.setCurrentIndex(page_index)
 
-    # -----------------------
+          
     # Single click helpers
-    # -----------------------
+          
     def _update_mouse_label(self):
         x, y = pyautogui.position()
         self.mouse_pos_label.setText(f"Mouse: {x}, {y}")
@@ -376,9 +376,9 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Captured", f"Captured: {x}, {y}")
             self._single_pos = (x, y)
 
-    # -----------------------
+          
     # Multi list management
-    # -----------------------
+          
     def _add_multi_item(self, action=None, *args, **kwargs):
         if action is None:
             x, y = pyautogui.position()
@@ -395,9 +395,9 @@ class MainWindow(QMainWindow):
         except ValueError:
             pass
 
-    # -----------------------
+          
     # Recording
-    # -----------------------
+          
     def _add_record_item_safe(self, text: str):
         QApplication.instance().postEvent(self, _FuncEvent(lambda: self.record_list.addItem(text)))
 
@@ -464,9 +464,9 @@ class MainWindow(QMainWindow):
                 time.sleep(0.05)
         self._add_record_item_safe("Recording finished.")
 
-    # -----------------------
+          
     # Execution engine
-    # -----------------------
+          
     def start_execution(self):
         self.stop_event.clear()
         mode = self.stack.currentIndex()
@@ -577,9 +577,9 @@ class MainWindow(QMainWindow):
             self.exec_thread.join(timeout=0.5)
         self.exec_thread = None
 
-    # -----------------------
+   
     # Settings and hotkeys
-    # -----------------------
+
     def open_settings(self):
         dlg = SettingsDialog(self, config=self.config)
         if dlg.exec():
@@ -627,9 +627,9 @@ class MainWindow(QMainWindow):
     def _hotkey_stop_pressed(self):
         QApplication.instance().postEvent(self, _FuncEvent(self.stop_execution))
 
-    # -----------------------
+          
     # Save / Load
-    # -----------------------
+          
     def save_config_dialog(self):
         fname, _ = QFileDialog.getSaveFileName(self, "Save config", str(Path.home()), "JSON Files (*.json)")
         if not fname:
@@ -680,25 +680,25 @@ class MainWindow(QMainWindow):
         self._install_hotkeys()
         QMessageBox.information(self, "Loaded", f"Loaded {fname}")
 
-    # -----------------------
+          
     # Qt event handling for hotkey callbacks
-    # -----------------------
+          
     def customEvent(self, event):
         if isinstance(event, _FuncEvent):
             event.callback()
 
-# ---------------------------
+  
 # Custom event to safely call functions on main thread
-# ---------------------------
+  
 from PySide6.QtCore import QEvent
 class _FuncEvent(QEvent):
     def __init__(self, callback):
         super().__init__(QEvent.User)
         self.callback = callback
 
-# ---------------------------
+  
 # Entry point
-# ---------------------------
+  
 def main():
     app = QApplication(sys.argv)
     win = MainWindow()
