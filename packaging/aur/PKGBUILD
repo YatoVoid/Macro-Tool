@@ -13,7 +13,7 @@ makedepends=('python-build' 'python-installer' 'python-hatchling')
 checkdepends=('python-pytest')
 install=macro-tool.install
 source=("$pkgname-$pkgver.tar.gz::https://github.com/YatoVoid/Macro-Tool/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('83c0a0ac3f287d7eaa331ccd046beff7824ed23480495b4393aeb7c2f1ed2f2a')
 
 build() {
   cd "Macro-Tool-$pkgver"
