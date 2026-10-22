@@ -85,20 +85,21 @@ class Player:
     def _wait_until(self, deadline: float) -> bool:
         """Sleep until deadline. False if stopped first.
 
-        Most of the wait blocks on the stop event; the last 2 ms are slept in
-        small steps, because a blocking wait can overshoot by a whole timer tick.
+        Long waits block on the stop event; the last 50 ms are slept in 1 ms
+        steps. A blocking wait can wake a whole timer tick late, and on some
+        macOS machines far more than that, while short sleeps stay close.
         """
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 return not self._stop.is_set()
-            if remaining > 0.003:
-                if self._stop.wait(min(remaining - 0.002, 0.25)):
+            if remaining > 0.06:
+                if self._stop.wait(min(remaining - 0.05, 0.25)):
                     return False
             else:
                 if self._stop.is_set():
                     return False
-                time.sleep(min(remaining, 0.0005))
+                time.sleep(min(remaining, 0.001))
 
     def _jitter_point(self, x, y):
         j = self.macro.jitter_px
