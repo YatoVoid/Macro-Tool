@@ -26,6 +26,14 @@ class PreciseTimers:
                 pass
         elif sys.platform == "darwin":
             try:
+                # Background threads get extra timer slack; ask for the least.
+                import ctypes
+                libsystem = ctypes.CDLL("/usr/lib/libSystem.dylib")
+                qos_class_user_interactive = 0x21
+                libsystem.pthread_set_qos_class_self_np(qos_class_user_interactive, 0)
+            except Exception:
+                pass
+            try:
                 from Foundation import NSProcessInfo
                 user_initiated, latency_critical = 0x00FFFFFF, 0xFF00000000
                 self._token = NSProcessInfo.processInfo().beginActivityWithOptions_reason_(

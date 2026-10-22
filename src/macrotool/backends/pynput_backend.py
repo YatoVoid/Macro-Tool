@@ -95,6 +95,9 @@ class PynputBackend(Backend):
 
     def _move(self, x, y):
         self.mouse.position = (x, y)
+        if sys.platform == "darwin":
+            # A click posted right after a move can still land on the old spot.
+            time.sleep(0.015)
 
     def _button(self, button, down):
         b = self._buttons.get(button)

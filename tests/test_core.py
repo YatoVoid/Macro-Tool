@@ -173,7 +173,10 @@ def test_player_keeps_rate_without_drift():
     b, r, _ = run(m)
     downs = [e[0] for e in b.log if e[1:] == ("button", "left", True)]
     span = downs[-1] - downs[0]
-    assert 49 * 0.020 <= span < 49 * 0.020 + 0.15
+    t = time.monotonic()
+    time.sleep(0.0005)
+    tick = (time.monotonic() - t) * 1000
+    assert 49 * 0.020 <= span < 49 * 0.020 + 0.15, f"span {span:.3f}s, a 0.5 ms sleep took {tick:.2f} ms"
 
 
 def test_player_stop_after_seconds():
