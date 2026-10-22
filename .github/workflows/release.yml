@@ -1,0 +1,207 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install . pytest "pyinstaller>=6.10" pillow
+      - run: python -m pytest -q
+      - name: Build
+        shell: bash
+        run: |
+          mkdir -p build out
+          python -c "from PIL import Image; Image.open('src/macrotool/icon.png').save('build/icon.ico', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+          common="--noconfirm --icon build/icon.ico --collect-data macrotool --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32"
+          pyinstaller $common --windowed --onedir --name MacroTool packaging/macro-tool-gui.py
+          pyinstaller $common --windowed --onefile --name MacroTool-portable --distpath dist/portable packaging/macro-tool-gui.py
+          pyinstaller $common --console --onefile --exclude-module PySide6 --name macro-tool-cli packaging/macro-tool-cli.py
+          dist/macro-tool-cli.exe --version
+          printf '{"format":"macro-tool","version":2,"steps":[{"kind":"wait","delay_ms":10}]}' > build/t.json
+          dist/macro-tool-cli.exe check build/t.json
+          cp dist/portable/MacroTool-portable.exe out/MacroTool-portable.exe
+          cp dist/macro-tool-cli.exe out/macro-tool-cli.exe
+      - name: Installer
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          case "$version" in [0-9]*) ;; *) version="0.0.0" ;; esac
+          iscc=$(ls "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" 2>/dev/null || true)
+          if [ -z "$iscc" ]; then choco install innosetup -y --no-progress; iscc="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"; fi
+          "$iscc" -DAppVersion=$version packaging/windows/macro-tool.iss
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: out/*
+
+  linux:
+    # Oldest supported runner, so the binaries run on older glibc too.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3 libxcb-cursor0
+          sudo gem install --no-document fpm
+      - run: python -m pip install . pytest "pyinstaller>=6.10"
+      - run: python -m pytest -q
+      - name: Build
+        run: |
+          pyinstaller --noconfirm --windowed --onedir --name macro-tool --collect-data macrotool \
+            --hidden-import pynput.keyboard._xorg --hidden-import pynput.mouse._xorg \
+            --hidden-import pynput.keyboard._uinput packaging/macro-tool-gui.py
+          packaging/linux/trim-bundle.sh dist/macro-tool
+          dist/macro-tool/macro-tool --version
+          dist/macro-tool/macro-tool --cli --version
+      - name: Package
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          case "$version" in [0-9]*) ;; *) version="0.0.0" ;; esac
+          mkdir -p out
+          root=pkgroot
+          install -d $root/opt $root/usr/bin $root/usr/share/applications $root/usr/share/metainfo \
+            $root/usr/lib/udev/rules.d $root/usr/lib/modules-load.d
+          cp -r dist/macro-tool $root/opt/macro-tool
+          ln -s /opt/macro-tool/macro-tool $root/usr/bin/macro-tool
+          install -m755 packaging/linux/macro-tool-cli $root/usr/bin/macro-tool-cli
+          install -m644 packaging/linux/io.github.yatovoid.MacroTool.desktop $root/usr/share/applications/
+          install -m644 packaging/linux/io.github.yatovoid.MacroTool.metainfo.xml $root/usr/share/metainfo/
+          install -m644 packaging/linux/60-macro-tool.rules $root/usr/lib/udev/rules.d/
+          install -m644 packaging/linux/macro-tool.conf $root/usr/lib/modules-load.d/
+          for s in 16 32 48 64 128 256 512; do
+            install -Dm644 packaging/icons/$s.png $root/usr/share/icons/hicolor/${s}x${s}/apps/io.github.yatovoid.MacroTool.png
+          done
+          common=(-s dir -C $root -n macro-tool -v "$version" --license MIT --vendor YatoVoid
+                  --maintainer "YatoVoid <YatoVoid@users.noreply.github.com>"
+                  --url https://github.com/YatoVoid/Macro-Tool
+                  --description "Auto clicker and mouse and keyboard macro recorder"
+                  --after-install packaging/linux/postinst.sh)
+          fpm "${common[@]}" -t deb -a amd64 -p "out/macro-tool_${version}_amd64.deb" \
+            -d libegl1 -d libgl1 -d libxkbcommon0 -d libxkbcommon-x11-0 -d libfontconfig1 -d libfreetype6 \
+            -d libdbus-1-3 -d libxcb-cursor0 .
+          fpm "${common[@]}" -t rpm -a x86_64 -p "out/macro-tool-${version}-1.x86_64.rpm" \
+            -d "libEGL.so.1()(64bit)" -d "libGL.so.1()(64bit)" -d "libxkbcommon.so.0()(64bit)" \
+            -d "libxkbcommon-x11.so.0()(64bit)" -d "libfontconfig.so.1()(64bit)" -d "libfreetype.so.6()(64bit)" \
+            -d "libdbus-1.so.3()(64bit)" -d "libxcb-cursor.so.0()(64bit)" .
+
+          app=MacroTool.AppDir
+          mkdir -p $app/usr/bin
+          cp -r dist/macro-tool/. $app/usr/bin/
+          cp packaging/linux/AppRun $app/AppRun
+          cp packaging/linux/io.github.yatovoid.MacroTool.desktop $app/
+          cp packaging/icons/256.png $app/io.github.yatovoid.MacroTool.png
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool-x86_64.AppImage $app out/MacroTool-x86_64.AppImage
+          APPIMAGE_EXTRACT_AND_RUN=1 out/MacroTool-x86_64.AppImage --version
+          APPIMAGE_EXTRACT_AND_RUN=1 out/MacroTool-x86_64.AppImage cli --version
+
+          t=macro-tool-linux-x86_64
+          cp -r dist/macro-tool $t
+          cp packaging/linux/io.github.yatovoid.MacroTool.desktop packaging/linux/60-macro-tool.rules $t/
+          cp packaging/icons/256.png $t/macro-tool.png
+          tar -czf out/macro-tool-linux-x86_64.tar.gz $t
+          ls -la out
+      - name: Check the .deb installs
+        run: |
+          sudo apt-get install -y ./out/macro-tool_*_amd64.deb
+          macro-tool --version
+          macro-tool-cli --version
+          test -f /usr/lib/udev/rules.d/60-macro-tool.rules
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: out/*
+
+  rpm-check:
+    needs: linux
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["fedora:latest", "opensuse/tumbleweed"]
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux
+          path: out
+      - name: Install the .rpm
+        run: |
+          if command -v dnf >/dev/null; then dnf install -y ./out/macro-tool-*.rpm
+          else zypper --non-interactive --no-gpg-checks install --allow-unsigned-rpm ./out/macro-tool-*.rpm; fi
+          macro-tool --version
+          macro-tool-cli --version
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install . pytest "pyinstaller>=6.10" pillow
+      - run: python -m pytest -q
+      - name: Build
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          case "$version" in [0-9]*) ;; *) version="0.0.0" ;; esac
+          pyinstaller --noconfirm --windowed --name "Macro Tool" --icon src/macrotool/icon.png --collect-data macrotool \
+            --hidden-import pynput.keyboard._darwin --hidden-import pynput.mouse._darwin \
+            --osx-bundle-identifier io.github.yatovoid.MacroTool packaging/macro-tool-gui.py
+          plist="dist/Macro Tool.app/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$plist"
+          /usr/libexec/PlistBuddy -c "Add :NSHighResolutionCapable bool true" "$plist" || true
+          codesign --force --deep --sign - "dist/Macro Tool.app"
+          "dist/Macro Tool.app/Contents/MacOS/Macro Tool" --version
+          "dist/Macro Tool.app/Contents/MacOS/Macro Tool" --cli --version
+      - name: Package
+        run: |
+          mkdir -p out dmg
+          cp -R "dist/Macro Tool.app" dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "Macro Tool" -srcfolder dmg -ov -format UDZO out/MacroTool-macos-${{ matrix.arch }}.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: out/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, rpm-check, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: assets/*

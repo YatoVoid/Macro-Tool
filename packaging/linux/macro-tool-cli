@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /opt/macro-tool/macro-tool --cli "$@"

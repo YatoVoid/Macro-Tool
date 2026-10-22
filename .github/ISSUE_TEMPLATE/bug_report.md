@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Something in recording, playback, or hotkeys is wrong
+about: Something in clicking, recording, playback or hotkeys is wrong
 title: ""
 labels: bug
 ---
@@ -9,9 +9,15 @@ labels: bug
 
 **What you expected**
 
-**Mode**
-Single click, multi click, or recording.
+**Steps to reproduce**
+If a macro is involved, attach the .json file (File > Save as).
 
-**X11 or Wayland**
+**Version**
+Help > About shows it.
 
-**Distro and desktop environment**
+**System**
+Windows, macOS, or Linux distro and desktop (for example Fedora 41, GNOME, Wayland).
+The bottom right corner of the window shows which input method is in use.
+
+**How you installed it**
+Installer, .deb, .rpm, AUR, AppImage, .dmg, or pipx.

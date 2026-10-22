@@ -5,9 +5,8 @@ title: ""
 labels: enhancement
 ---
 
+**What you're trying to automate**
+
 **What's missing or awkward**
 
 **How you'd want it to work**
-
-**Have you checked the ToDo list in the README?**
-Say if this overlaps with something already planned there.

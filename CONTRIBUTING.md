@@ -2,28 +2,33 @@
 
 ## Running it
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install PySide6 pyautogui pynput
-python3 AutoClicker.py
+```
+python -m venv .venv
+.venv/bin/pip install -e . pytest
+.venv/bin/macro-tool
 ```
 
-Requires an X11 session, Wayland doesn't allow the global mouse/keyboard
-capture this depends on. `pyautogui`/`pynput` may need root to capture input
-globally on Linux.
+On Windows use `.venv\Scripts\` instead of `.venv/bin/`. On Wayland, do the Wayland setup from the README first.
+
+## Layout
+
+| Path | What's there |
+|---|---|
+| `src/macrotool/model.py` | Steps, macros and the JSON file format, including loading old configs |
+| `src/macrotool/engine.py` | Plays a macro on a background thread |
+| `src/macrotool/recorder.py` | Turns raw input events into tidy steps |
+| `src/macrotool/backends/` | Sending and reading input: `pynput_backend.py` for X11, Windows and macOS, `uinput_backend.py` for Wayland |
+| `src/macrotool/picker.py` | The full-screen point picker |
+| `src/macrotool/window.py`, `widgets.py` | The main window and dialogs |
+| `src/macrotool/cli.py` | `macro-tool-cli` |
+| `packaging/` | Desktop file, udev rule, icons, installer and AUR files |
 
 ## Before opening a PR
 
-- Test on an actual X11 session, not just that it imports cleanly.
-- If you're picking up one of the open ToDo items in the README (save/load
-  for multiple actions, smoother recording), say so in the PR so two people
-  don't build the same thing.
-- Keep the config JSON format backward compatible, or say clearly in the PR
-  that it isn't and why.
+- Run `python -m pytest`. Add a test for the change where one fits.
+- If you touched input, try it for real. `tests/test_x11.py` does that on X11 under Xvfb (`MACRO_TOOL_X11=1 xvfb-run pytest tests/test_x11.py`). Say in the PR which systems you tried it on.
+- Keep the macro file format backward compatible. If a change can't be, bump `VERSION` in `model.py` and say why in the PR.
 
 ## Reporting a bug
 
-What you were doing (single click, multi click, or recording mode), what
-you expected, what happened, and whether you're on X11 or Wayland.
+Use the bug report template. The most useful details are the system and desktop, how you installed it, the input method shown in the bottom right corner of the window, and the macro file if one is involved.

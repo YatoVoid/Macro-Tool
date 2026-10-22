@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Macro Tool
+GenericName=Macro recorder and auto clicker
+Comment=Record and replay mouse and keyboard macros
+Exec=macro-tool %f
+Icon=io.github.yatovoid.MacroTool
+Terminal=false
+Categories=Utility;
+Keywords=macro;auto clicker;autoclicker;automation;record;replay;keyboard;mouse;
+StartupWMClass=macro-tool
