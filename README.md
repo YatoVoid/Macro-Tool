@@ -75,6 +75,7 @@ To click inside a program that runs as administrator (Task Manager, some games a
 4. macOS asks for two permissions. Turn on Macro Tool in both, in System Settings > Privacy & Security:
    - **Accessibility**, to click and type
    - **Input Monitoring**, for hotkeys and recording
+   - **Screen Recording** (optional), so the magnifier shows the real pixels when you pick a point
 
    Then quit Macro Tool and open it again.
 
@@ -264,6 +265,7 @@ From the AppImage, run `./MacroTool-x86_64.AppImage cli play farm.json`. On macO
 
 - **Games with anti-cheat** and some full-screen games ignore simulated input.
 - **Typing on Wayland** uses the US keyboard layout. Letters, digits and common symbols work; accented letters and emoji don't, and on other layouts some symbols come out as the key in the same place. X11, Windows and macOS type any character.
+- **Wayland** has been tried by hand on KDE Plasma with one monitor. GNOME, Sway, Hyprland and multi-monitor Wayland setups follow the same code paths but haven't been tried by hand yet.
 - **Touchpad taps on Wayland** are recorded as clicks when tap-to-click is on in your desktop settings.
 - **Windows:** can't click on the administrator prompt (UAC) or the lock screen. Windows blocks that for every app.
 - **macOS:** the app isn't notarized. Builds are tested automatically on GitHub's Macs, but haven't been tried by hand on a real Mac yet; reports are welcome.

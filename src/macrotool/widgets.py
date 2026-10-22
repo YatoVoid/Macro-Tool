@@ -341,8 +341,7 @@ class StepDialog(QDialog):
         if self.text is not None:
             s.text = self.text.toPlainText()
             if not self.full_unicode:
-                from .backends.evdev_keys import char_codes
-                bad = sorted({c for c in s.text if char_codes(c) is None})
+                bad = sorted({c for c in s.text if keys.us_layout_char(c) is None})
                 if bad:
                     return self._fail("These characters can't be typed on Wayland: " + " ".join(bad))
         s.delay_ms = self.delay.value()

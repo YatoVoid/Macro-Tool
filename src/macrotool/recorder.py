@@ -137,6 +137,9 @@ def strip_trailing_click(events: list[InputEvent]) -> list[InputEvent]:
     for i in range(len(events) - 1, -1, -1):
         ev = events[i]
         if ev.kind == "button" and ev.down:
+            # also drop the pointer's trip over to the button
+            while i > 0 and events[i - 1].kind == "move":
+                i -= 1
             return events[:i]
     return events
 

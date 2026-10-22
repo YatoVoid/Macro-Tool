@@ -173,6 +173,9 @@ class PynputListener(Listener):
             self.error = ("macOS is blocking keyboard input. Allow Macro Tool in System Settings > "
                           "Privacy & Security > Accessibility and Input Monitoring, then restart it.")
 
+    def alive(self) -> bool:
+        return all(t is not None and t.is_alive() for t in (self._k, self._m))
+
     def stop(self):
         for listener in (self._k, self._m):
             if listener is not None:

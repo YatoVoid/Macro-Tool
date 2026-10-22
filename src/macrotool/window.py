@@ -1188,7 +1188,8 @@ class MainWindow(QMainWindow):
         elif st == "macos":
             text = ("macOS asks for two permissions the first time: Accessibility (to click and type) and "
                     "Input Monitoring (for hotkeys and recording). Turn on Macro Tool in System Settings > "
-                    "Privacy & Security for both, then quit and reopen it.")
+                    "Privacy & Security for both, then quit and reopen it.\n\nScreen Recording is optional: "
+                    "with it, the magnifier shows the real pixels when you pick a point.")
         elif st == "windows":
             text = ("Macro Tool works with normal apps right away. To click in an app that runs as "
                     "administrator, run Macro Tool as administrator too.")

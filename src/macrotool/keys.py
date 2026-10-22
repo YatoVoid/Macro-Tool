@@ -57,6 +57,25 @@ SHIFTED = {
 }
 
 
+def us_layout_char(ch: str) -> tuple[str, bool] | None:
+    """(key, needs_shift) that types ch on a US keyboard, or None."""
+    if ch == "\n":
+        return "enter", False
+    if ch == "\t":
+        return "tab", False
+    if ch == " ":
+        return "space", False
+    if len(ch) != 1 or not ch.isascii():
+        return None
+    if ch.isalpha():
+        return ch.lower(), ch.isupper()
+    if ch.isdigit() or ch in "-=[]\\;'`,./":
+        return ch, False
+    if ch in SHIFTED:
+        return SHIFTED[ch], True
+    return None
+
+
 class KeyNameError(ValueError):
     pass
 

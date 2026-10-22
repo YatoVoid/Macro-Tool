@@ -369,3 +369,20 @@ def test_hotkey_dialog_rejects_clashes(app):
     dlg.edits["stop"].setCombo("ctrl+a")
     dlg.accept()
     assert dlg.result() == 1
+
+
+def test_hub_restarts_dead_listener(win, app):
+    from fakes import FakeListener
+    hub = win.hub
+    old = hub.listener
+    old.alive = lambda: False
+    hub._check()
+    assert hub.listener is not old and isinstance(hub.listener, FakeListener)
+    assert hub.listener.started and hub.restarts == 1
+    win.tabs.setCurrentIndex(0)
+    win._set_interval(50)
+    hub._on_event(InputEvent("key", 0, key="f9", down=True))
+    hub._on_event(InputEvent("key", 0, key="f9", down=False))
+    wait_until(app, lambda: win.playing)
+    win.stop_all()
+    wait_until(app, lambda: not win.playing)

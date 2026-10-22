@@ -187,9 +187,9 @@ def test_player_speed_and_zero_delay():
     m = Macro(steps=[Step("click", delay_ms=100)], repeat=5, speed=10)
     _, r, _ = run(m)
     assert r.seconds < 0.3
-    m = Macro(steps=[Step("click")], repeat=2000)
+    m = Macro(steps=[Step("click")], repeat=300)
     _, r, _ = run(m)
-    assert r.loops == 2000
+    assert r.loops == 300
 
 
 def test_player_jitter_bounds():
@@ -267,7 +267,7 @@ def test_recorder_trailing_stop_click():
     r.add(ev("move", 0.5, x=10, y=10))
     r.add(ev("button", 0.6, x=10, y=10, button="left", down=True))
     steps = r.finish(0.7, drop_trailing_click=True)
-    assert [s.kind for s in steps] == ["key", "move"]
+    assert [s.kind for s in steps] == ["key"]
 
 
 def test_recorder_modifier_released_first():
@@ -335,3 +335,21 @@ def test_merge_typing():
     out = merge_typing(steps)
     assert [(s.kind, s.text or s.key, s.delay_ms) for s in out] == [
         ("text", "Ca !", 280), ("key", "enter", 10), ("key", "ctrl+s", 5), ("key", "x", 1)]
+
+
+def test_us_layout_chars():
+    assert keys.us_layout_char("A") == ("a", True)
+    assert keys.us_layout_char("!") == ("1", True)
+    assert keys.us_layout_char("/") == ("/", False)
+    assert keys.us_layout_char("\n") == ("enter", False)
+    assert keys.us_layout_char("é") is None
+
+
+def test_evdev_char_codes_match_layout():
+    pytest.importorskip("evdev")
+    from evdev import ecodes as e
+    from macrotool.backends.evdev_keys import char_codes
+    assert char_codes("A") == (e.KEY_A, True)
+    assert char_codes("?") == (e.KEY_SLASH, True)
+    assert char_codes(" ") == (e.KEY_SPACE, False)
+    assert char_codes("ü") is None

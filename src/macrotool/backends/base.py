@@ -42,6 +42,9 @@ class Listener:
     def want_moves(self, on: bool):
         """Pointer motion is only needed while recording."""
 
+    def alive(self) -> bool:
+        return True
+
     def emit(self, event: InputEvent):
         try:
             self.handler(event)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import time
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QTimer, Signal
 
 from . import keys
 from .backends import Backend, BackendError, InputEvent
@@ -29,6 +29,10 @@ class InputHub(QObject):
         self._recorder: Recorder | None = None
         self._rec_lock = threading.Lock()
         self.hotkeys: dict[str, str] = dict(DEFAULT_HOTKEYS)
+        self.restarts = 0
+        self._watchdog = QTimer(self)
+        self._watchdog.setInterval(5000)
+        self._watchdog.timeout.connect(self._check)
 
     def start(self) -> bool:
         try:
@@ -38,9 +42,33 @@ class InputHub(QObject):
         except BackendError as e:
             self.listener = None
             self.error = str(e)
+        if self.listener is not None:
+            self._watchdog.start()
         return self.listener is not None
 
+    def _check(self):
+        """Restart the listener if its thread died (X server hiccup, device error)."""
+        if self.listener is None or self.listener.alive():
+            return
+        moves = self._recorder is not None and self._recorder.record_moves
+        try:
+            self.listener.stop()
+        except Exception:
+            pass
+        try:
+            self.listener = self.backend.listener(self._on_event)
+            self.listener.start()
+            if moves:
+                self.listener.want_moves(True)
+            self.restarts += 1
+            self.matcher.reset()
+        except BackendError as e:
+            self.listener = None
+            self.error = str(e)
+            self._watchdog.stop()
+
     def stop(self):
+        self._watchdog.stop()
         if self.listener is not None:
             self.listener.stop()
             self.listener = None

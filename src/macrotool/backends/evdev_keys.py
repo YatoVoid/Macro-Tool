@@ -68,13 +68,9 @@ def code_for(key: str) -> tuple[int, bool]:
 
 
 def char_codes(ch: str) -> tuple[int, bool] | None:
-    if ch == "\n":
-        return e.KEY_ENTER, False
-    if ch == "\t":
-        return e.KEY_TAB, False
-    if ch.isupper() and ch.lower() in CHARS:
-        return CHARS[ch.lower()], True
-    try:
-        return code_for(ch)
-    except KeyError:
+    found = keys.us_layout_char(ch)
+    if found is None:
         return None
+    key, shift = found
+    code = NAMED.get(key) or CHARS.get(key)
+    return (code, shift) if code is not None else None

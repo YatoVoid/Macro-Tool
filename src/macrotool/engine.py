@@ -12,6 +12,7 @@ from typing import Callable
 from . import keys
 from .backends import Backend
 from .model import Macro, Step
+from .timing import PreciseTimers
 
 
 @dataclass
@@ -82,13 +83,22 @@ class Player:
         return self.result
 
     def _wait_until(self, deadline: float) -> bool:
-        """Sleep until deadline. False if stopped first."""
+        """Sleep until deadline. False if stopped first.
+
+        Most of the wait blocks on the stop event; the last 2 ms are slept in
+        small steps, because a blocking wait can overshoot by a whole timer tick.
+        """
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 return not self._stop.is_set()
-            if self._stop.wait(min(remaining, 0.25)):
-                return False
+            if remaining > 0.003:
+                if self._stop.wait(min(remaining - 0.002, 0.25)):
+                    return False
+            else:
+                if self._stop.is_set():
+                    return False
+                time.sleep(min(remaining, 0.0005))
 
     def _jitter_point(self, x, y):
         j = self.macro.jitter_px
@@ -152,6 +162,10 @@ class Player:
             b.type_text(step.text)
 
     def _run(self):
+        with PreciseTimers():
+            self._play()
+
+    def _play(self):
         self.started = time.monotonic()
         m = self.macro
         reason, error = "done", ""

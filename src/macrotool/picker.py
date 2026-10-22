@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 
 from PySide6.QtCore import (QEasingCurve, QEventLoop, QObject, QPointF, QRect, QRectF, Qt,
@@ -41,6 +42,8 @@ def capture_screens() -> dict[str, QPixmap]:
     """Screenshot of each screen, keyed by screen name. Empty if not possible."""
     screens = QGuiApplication.screens()
     shots: dict[str, QPixmap] = {}
+    if sys.platform == "darwin" and not _mac_can_capture():
+        return shots
     if session_type() != "wayland":
         for s in screens:
             pm = s.grabWindow(0)
@@ -79,6 +82,16 @@ def capture_screens() -> dict[str, QPixmap]:
         pm.setDevicePixelRatio(sx)
         shots[s.name()] = pm
     return shots
+
+
+def _mac_can_capture() -> bool:
+    """Without Screen Recording permission macOS hands back only the
+    wallpaper, which would make the magnifier lie."""
+    try:
+        import Quartz
+        return bool(Quartz.CGPreflightScreenCaptureAccess())
+    except Exception:
+        return False
 
 
 def _blank(pm: QPixmap) -> bool:
@@ -281,7 +294,12 @@ class Overlay(QWidget):
         self._mono.setPointSizeF(self._font.pointSizeF())
 
     def present(self):
-        self.showFullScreen()
+        if sys.platform == "darwin":
+            # full screen on macOS means a new Space with a slide animation
+            self.setGeometry(self.screen_geo)
+            self.show()
+        else:
+            self.showFullScreen()
         self.raise_()
 
     def screen(self):

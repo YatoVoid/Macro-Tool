@@ -398,6 +398,9 @@ class EvdevListener(Listener):
             self._devices.clear()
             sel.close()
 
+    def alive(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
     def want_moves(self, on: bool):
         source = self.backend.pointer_source
         if on and self._unsubscribe is None and source is not None:

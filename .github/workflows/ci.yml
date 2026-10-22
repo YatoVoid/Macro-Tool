@@ -41,3 +41,20 @@ jobs:
             libxcb-render-util0 libxcb-image0
       - run: python -m pip install -e . pytest
       - run: MACRO_TOOL_X11=1 xvfb-run -a -s "-screen 0 1280x800x24" python -m pytest -q tests/test_x11.py
+
+  desktop:
+    # Real clicks and typing on the runner's own desktop.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e . pytest
+      - run: python -m pytest -q tests/test_desktop.py -rA
+        env:
+          MACRO_TOOL_DESKTOP: "1"
